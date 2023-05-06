@@ -1,11 +1,24 @@
 import './index.css';
 import Button from '../../components/Button';
 import Modal from '../../components/modal';
+import { DerivAPIContext } from '../../context/DerivAPIContext';
 import {NotificationContainer, NotificationManager} from 'react-notifications';
-import { useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import {useHistory } from 'react-router-dom';
 
 function Login() {
     const [OAuthModal, setOAuthModal] = useState(false);
+    const [token, setToken] = useState("");
+    const deriv = useContext(DerivAPIContext);
+    const history = useHistory();
+    
+    useEffect(() => {
+        if(deriv.info.isAuthorized){
+            history.push('/home');
+            console.log("check");
+        }
+
+    }, [deriv.info.isAuthorized])
     const createNotification = (type) => {
         return () => {
             
@@ -54,8 +67,8 @@ function Login() {
                     <p className='my-8'>ИЛИ</p>
 
                     <p className='text-left'>Ввести API токен</p>
-                    <input className='bg-slate-200 w-full mb-2 hover:outline-0	focus:outline-0 border-b-2 border-black p-2'/>
-                    <Button className='bg-black w-full' onClick ={createNotification('warning')}>ВОЙТИ</Button>
+                    <input value={token} onChange={(e) => setToken(e.target.value)} className='bg-slate-200 w-full mb-2 hover:outline-0	focus:outline-0 border-b-2 border-black p-2'/>
+                    <Button className='bg-black w-full' onClick ={()=>{deriv.auThorized(token)}}>ВОЙТИ</Button>
                 
                 </div>
 
