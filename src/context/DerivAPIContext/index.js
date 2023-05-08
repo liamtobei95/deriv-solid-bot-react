@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import {NotificationContainer, NotificationManager} from 'react-notifications';
+
 import DerivAPIBasic from "https://cdn.skypack.dev/@deriv/deriv-api/dist/DerivAPIBasic";
 
 const app_id = 1089; // Replace with your app_id or leave as 1089 for testing.
@@ -46,8 +48,14 @@ let settings = {
 
 const DerivAPIContextTemplate = {
 	info: {},
+	table: [],
+	notifications: [],
 	auThorized: () => {},
-	logout: () => {}
+	logout: () => {},
+	updateSettings: () => {},
+	startTrade: () => {},
+	pauseTrade: () => {},
+
 };
 
 const DerivAPIContext = React.createContext(DerivAPIContextTemplate);
@@ -67,13 +75,35 @@ const DerivAPIProvider = ({children}) => {
 			ModalTracking: 0,
 			target: 0,
 			stop: 0,
+			isStarted: false,
 		});
 	const [pattern, setPattern] = useState("");
+	const [table, setTable] = useState([]);
+	const [notifications, setNotifications] = useState([]);
 
 	useEffect(()=>{
 		testWebSocket();
 	},[])
 	
+	const createNotification = (type, title, message) => {
+        
+		switch (type) {
+		  case 'info':
+			NotificationManager.info(message);
+			break;
+		  case 'success':
+			NotificationManager.success(title, message);
+			break;
+		  case 'warning':
+			NotificationManager.warning(title, message, 3000);
+			break;
+		  case 'error':
+			NotificationManager.error(title, message, 5000, () => {
+			});
+			break;
+		}
+	}
+
 	const initWebSocket = () => {
 		connection = new WebSocket(
 			`wss://ws.binaryws.com/websockets/v3?app_id=${app_id}`
@@ -83,12 +113,18 @@ const DerivAPIProvider = ({children}) => {
 	const testWebSocket = () => {
 		connection.onopen = function (evt) { onOpen(evt) };
 		connection.onmessage = function (evt) { onMessage(evt) };
+		connection.onerror = function (evt) { onError(evt)};
+		connection.onclose = function (evt) { onClose(evt)};
+
 	}
 	const onOpen = (evt) => {
 
 		var tokenThisSession = localStorage.getItem("token") || settings.currentToken;
-		settings.currentToken = tokenThisSession;
-		auThorized(tokenThisSession);
+		if(tokenThisSession.length > 0){
+			settings.currentToken = tokenThisSession;
+			auThorized(tokenThisSession);
+		}
+		
 	}
 	
 	const auThorized = (token) => {
@@ -97,8 +133,10 @@ const DerivAPIProvider = ({children}) => {
 		settings.currentToken = token;
 		if(connection.readyState == WebSocket.CLOSED)
 			initWebSocket();
-		else
+		else{
 			connection.send(JSON.stringify({ authorize: token }));
+			setNotifications(prev => ([getTimeStamp() + " - Try to Connecting..", ...prev]) );
+		}
 	}
 
 	const logout = () => {
@@ -106,10 +144,19 @@ const DerivAPIProvider = ({children}) => {
 		localStorage.removeItem("token");
 		setInfo({isAuthorized: false});
 	}
+	
+	const updateSettings = (updated) => {
+		settings = {...settings, ...updated};
+		setNotifications(prev => ([
+			'<span style="color: #b522b5;"> Setting has been changed!</span>',
+			...prev
+		]))
+	}
 
 	function onMessage(evt) {
     
 		// var timestamp = dateFormat(new Date(), 'd-M-y/h:i:s');
+		var timestamp = getTimeStamp();
 		var call = JSON.parse(evt.data);
 		var status = call.msg_type;
 
@@ -152,11 +199,14 @@ const DerivAPIProvider = ({children}) => {
 			  if (pattern == p_arr_d) {
 				// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 				// writeToScreen(timestamp + " - Found Spot OP! Current Pattern " + pattern + " == " + p_arr_d);
+				setNotifications(prev => ([getTimeStamp() + " - Found Spot OP! Current Pattern " + pattern + " == " + p_arr_d, ...prev]))
 				settings.OPStatus = "STOP";
 				Odd();
 			  } else {
 				// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 				// writeToScreen(timestamp + " - Analizing price.. Current Digit Pattern " + p_arr_d);
+				setNotifications(prev => ([getTimeStamp() + " - Analizing price.. Current Digit Pattern " + p_arr_d, ...prev]))
+
 			  }
 
 			} else if (settings.paramTradeKind == "Digit Even" && settings.OPStatus == "START") {
@@ -172,11 +222,15 @@ const DerivAPIProvider = ({children}) => {
 			  if (pattern == p_arr_d) {
 				// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 				// writeToScreen(timestamp + " - Found Spot OP! Current Pattern " + pattern + " == " + p_arr_d);
+				setNotifications(prev => ([getTimeStamp() + " - Found Spot OP! Current Pattern " + pattern + " == " + p_arr_d, ...prev]))
+
 				settings.OPStatus = "STOP";
 				Even();
 			  } else {
 				// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 				// writeToScreen(timestamp + " - Analizing price.. Current Digit Pattern " + p_arr_d);
+				setNotifications(prev => ([getTimeStamp() + " - Analizing price.. Current Digit Pattern " + p_arr_d, ...prev]))
+
 			  }
 
 
@@ -223,9 +277,9 @@ const DerivAPIProvider = ({children}) => {
 			  }
 			  //digit processing
 			  if (settings.countSameDigit == 3) {
-				// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
+				
 				// writeToScreen(timestamp + " - Found Spot OP! Current Digit " + settings.lastNumCurrent + " - Digit = " + settings.countSameDigit + " ( " + settings.lastNumCurrent + " Vs " + settings.digitBefore + " )");
-
+				setNotifications(prev => ([getTimeStamp()+ " - Found Spot OP! Current Digit " + settings.lastNumCurrent + " - Digit = " + settings.countSameDigit + " ( " + settings.lastNumCurrent + " Vs " + settings.digitBefore + " )", ...prev]))
 				settings.OPStatus = "STOP";
 			  console.log("stop");
 
@@ -233,7 +287,9 @@ const DerivAPIProvider = ({children}) => {
 			  } else {
 				// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 				// writeToScreen(timestamp + " - Analizing price.. Current Digit " + settings.lastNumCurrent + " - Digit = " + settings.countSameDigit + " ( " + settings.lastNumCurrent + " Vs " + settings.digitBefore + " )");
-			  }
+				setNotifications(prev => ([getTimeStamp() + " - Analizing price.. Current Digit " + settings.lastNumCurrent + " - Digit = " + settings.countSameDigit + " ( " + settings.lastNumCurrent + " Vs " + settings.digitBefore + " )", ...prev]))
+			  
+			}
 			}
 
 		  }
@@ -303,11 +359,17 @@ const DerivAPIProvider = ({children}) => {
 			var crrnmdlxx = Number(settings.currentModal);
 			var crrnmdlxxx = crrnmdlxx.toFixed(2);
 			if (settings.paramTradeKind == "Digit Over" || settings.paramTradeKind == "Digit Under") {
-			//   create_table(timestamp + " " + "$" + profit.toFixed(2) + " $" + result + " " + pftPercentDisply + "%" + " $" + crrnmdlxxx + " " + settings.lockingDigit);
+
+			  create_table(timestamp + " " + "$" + profit.toFixed(2) + " $" + result + " " + pftPercentDisply + "%" + " $" + crrnmdlxxx + " " + settings.lockingDigit);
 			} else if (settings.paramTradeKind == "Rise" || settings.paramTradeKind == "Fall" || settings.paramTradeKind == "Digit Odd" || settings.paramTradeKind == "Digit Even"
 			  || settings.paramTradeKind == "Higher" || settings.paramTradeKind == "Lower") {
-			//   create_table(timestamp + " " + "$" + profit.toFixed(2) + " $" + result + " " + pftPercentDisply + "%" + " $" + crrnmdlxxx + " " + settings.paramTradeKind);
+			  create_table(timestamp + " " + "$" + profit.toFixed(2) + " $" + result + " " + pftPercentDisply + "%" + " $" + crrnmdlxxx + " " + settings.paramTradeKind);
 			}
+
+			setNotifications(prev => ([
+				'<span style="color: #4CAF50;"> ' + getTimeStamp() + ' - Profit $' + profit.toFixed(2) + '</span>',
+				...prev
+			]))
 
 			settings.OPStatus = "START";
 
@@ -321,13 +383,16 @@ const DerivAPIProvider = ({children}) => {
 
 
 			  if (settings.paramTradeKind == "Digit Over" || settings.paramTradeKind == "Digit Under") {
-				// create_table(timestamp + " " + "$" + profit.toFixed(2) + " $" + result + " " + pftPercentDisply + "%" + " $" + crrnmdlxxx + " " + settings.lockingDigit);
+				create_table(timestamp + " " + "$" + profit.toFixed(2) + " $" + result + " " + pftPercentDisply + "%" + " $" + crrnmdlxxx + " " + settings.lockingDigit);
 			  } else if (settings.paramTradeKind == "Rise" || settings.paramTradeKind == "Fall" || settings.paramTradeKind == "Digit Odd" || settings.paramTradeKind == "Digit Even"
 				|| settings.paramTradeKind == "Higher" || settings.paramTradeKind == "Lower") {
-				// create_table(timestamp + " " + "$" + profit.toFixed(2) + " $" + result + " " + pftPercentDisply + "%" + " $" + crrnmdlxxx + " " + settings.paramTradeKind);
+				create_table(timestamp + " " + "$" + profit.toFixed(2) + " $" + result + " " + pftPercentDisply + "%" + " $" + crrnmdlxxx + " " + settings.paramTradeKind);
 			  }
 
-
+			  setNotifications(prev => ([
+				'<span style="color: #f20202;"> ' + getTimeStamp() + ' - Loss $' + crrnmdlxxx + '</span>',
+				...prev
+			]))
 			  //$.post("save_data_trade.html", { trade_mode:settings.paramTradeKind,full_name:settings.fullnameSaved,cr_account:settings.cr_accountSaved,is_virtual:settings.virtual_accSaved,email:settings.emailSaved,stake_value:settings.currentModal,return_value: result});
 			}
 
@@ -386,8 +451,9 @@ const DerivAPIProvider = ({children}) => {
 
 		  if (call.error) {
 			// writeToScreen('<span style="color: red;"> ' + timestamp + ' - Invalid Token Please Re loging or Create new account..</span>');
-
-
+			
+			// setError("Invalid Token Please Re loging or Create new account..");
+			createNotification("warning", "warning", "invalid token")
 		  } else {
 			console.log(call);
 			settings.isAuthorized = true;
@@ -400,7 +466,10 @@ const DerivAPIProvider = ({children}) => {
 			console.log("----------currency------", currency)
 
 			settings.balanceStarting = balance;
-
+			setNotifications(prev => ([
+				'<span style="color: blue;"> ' + timestamp + ' - Connection Established with Binary.Com Server..</span>',
+				...prev
+			]))
 			setInfo(prev => (
 				{...prev, 
 					isAuthorized: true, 
@@ -456,6 +525,20 @@ const DerivAPIProvider = ({children}) => {
 		connection.send(JSON.stringify({ "ticks": settings.currentMarket, "subscribe": 1 }));
 	  }
 
+	  function startTrade() {
+        settings.globalOpenPos = "START";
+        settings.OPStatus = "START";
+        settings.balanceStarting = settings.balanceNow;
+        settings.profitNow = "0.00";
+        settings.ModalTracking = settings.currentModal;
+        settings.ModalTracking2 = settings.currentModal;
+		setInfo(prev => ({...prev, isStarted: true}));
+		setNotifications(prev => ([
+			'<span style="color: blue;"> ' + getTimeStamp() + ' - Start Trade!</span>',
+			...prev
+		]))
+      }
+
 	  const closeConn = () => {
 		connection.close();
 	  }
@@ -463,6 +546,11 @@ const DerivAPIProvider = ({children}) => {
 
 	  const pauseTrade = () => {
 		settings.globalOpenPos = 'STOP';
+		setInfo(prev => ({...prev, isStarted: false}));
+		setNotifications(prev => ([
+			'<span style="color: red;"> ' + getTimeStamp() + ' - Pause Trade!</span>',
+			...prev
+		]))
 	  }
 
 	
@@ -475,8 +563,11 @@ const DerivAPIProvider = ({children}) => {
 
 		settings.globalOpenPos = "STOP";
 		settings.OPStatus = "STOP";
-
-
+		setInfo(prev => ({...prev, isStarted: false}));
+		setNotifications(prev => ([
+			'<span style="color: Red;"> ' + getTimeStamp() + ' - Stop Loss Touched!</span>',
+			...prev
+		]))
 		var loss_ceil = Number(settings.currentStopLoss);
 		var loss_alrt = loss_ceil.toFixed(2);
 
@@ -486,14 +577,17 @@ const DerivAPIProvider = ({children}) => {
 
 		settings.globalOpenPos = "STOP";
 		settings.OPStatus = "STOP";
-
+		setInfo(prev => ({...prev, isStarted: false}));
+		
 		var balance = Number(settings.balanceNow);
 		var balance_alrt = balance.toFixed(2);
 
 		var modal = Number(settings.currentModal);
 		var modal_alrt = modal.toFixed(2);
-
-		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
+		setNotifications(prev => ([
+			'<span style="color: Red;"> ' + getTimeStamp() + ' - Your account balance ($' + balance_alrt + ') is insufficient to buy this contract ($' + modal_alrt + ').</span>',
+			...prev
+		]))
 
 	  }
 
@@ -505,7 +599,10 @@ const DerivAPIProvider = ({children}) => {
 		var modalOrder = modalOrderx.toFixed(2);
 		var market = settings.currentMarket == "Random" ? getRandomMarket() : settings.currentMarket;
 		var total_tick = settings.paramTickKind;
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 
 		if (Number(settings.balanceNow) < modalOrder) {
 
@@ -541,7 +638,10 @@ const DerivAPIProvider = ({children}) => {
 
 		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 		// writeToScreen('<span style="color: #003edb;"> ' + timestamp + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>');
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 		if (Number(settings.balanceNow) < modalOrder) {
 
 		  balInsuficient();
@@ -576,7 +676,10 @@ const DerivAPIProvider = ({children}) => {
 
 		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 		// writeToScreen('<span style="color: #003edb;"> ' + timestamp + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>');
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 		if (Number(settings.balanceNow) < modalOrder) {
 
 		  balInsuficient();
@@ -611,6 +714,10 @@ const DerivAPIProvider = ({children}) => {
 		var market = settings.currentMarket == "Random" ? getRandomMarket() : settings.currentMarket;
 		var total_tick = settings.paramTickKind;
 
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 
 		if (Number(settings.balanceNow) < modalOrder) {
 
@@ -646,7 +753,10 @@ const DerivAPIProvider = ({children}) => {
 
 		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 		// writeToScreen('<span style="color: #003edb;"> ' + timestamp + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>');
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 		if (Number(settings.balanceNow) < modalOrder) {
 
 		  balInsuficient();
@@ -682,7 +792,10 @@ const DerivAPIProvider = ({children}) => {
 
 		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 		// writeToScreen('<span style="color: #003edb;"> ' + timestamp + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>');
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 		if (Number(settings.balanceNow) < modalOrder) {
 
 		  balInsuficient();
@@ -719,7 +832,10 @@ const DerivAPIProvider = ({children}) => {
 
 		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 		// writeToScreen('<span style="color: #003edb;"> ' + timestamp + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>');
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 		if (Number(settings.balanceNow) < modalOrder) {
 
 		  balInsuficient();
@@ -755,7 +871,10 @@ const DerivAPIProvider = ({children}) => {
 
 		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 		// writeToScreen('<span style="color: #003edb;"> ' + timestamp + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>');
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 		if (Number(settings.balanceNow) < modalOrder) {
 
 		  balInsuficient();
@@ -790,7 +909,10 @@ const DerivAPIProvider = ({children}) => {
 
 		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 		// writeToScreen('<span style="color: #003edb;"> ' + timestamp + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>');
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 		if (Number(settings.balanceNow) < modalOrder) {
 
 		  balInsuficient();
@@ -825,7 +947,10 @@ const DerivAPIProvider = ({children}) => {
 
 		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 		// writeToScreen('<span style="color: #003edb;"> ' + timestamp + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>');
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 		if (Number(settings.balanceNow) < modalOrder) {
 
 		  balInsuficient();
@@ -862,7 +987,10 @@ const DerivAPIProvider = ({children}) => {
 
 		// var timestamp = dateFormat(new Date(), 'd-M-y h:i:s');
 		// writeToScreen('<span style="color: #003edb;"> ' + timestamp + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>');
-
+		setNotifications(prev => ([
+			'<span style="color: #003edb;"> ' + getTimeStamp() + ' - Stake ' + settings.paramTradeKind + ' $' + modalOrder + '</span>',
+			...prev
+		]))
 		if (Number(settings.balanceNow) < modalOrder) {
 
 		  balInsuficient();
@@ -926,22 +1054,71 @@ const DerivAPIProvider = ({children}) => {
 
 		settings.globalOpenPos = "STOP";
 		settings.OPStatus = "STOP";
-	
+		setInfo(prev => ({...prev, isStarted: false}));
+		setNotifications(prev => ([
+			'<span style="color: Green;"> ' + getTimeStamp() + ' - Target Achieved!!</span>',
+			...prev
+		]))
 		var profit_ceil = Number(settings.currentTargetProfit);
 		var profit_alrt = profit_ceil.toFixed(2);
 	
 	
 	  }
 
+	 const  onClose = (evt) => {
+        var timestamp = getTimeStamp();
+        // writeToScreen(timestamp + " - Disconnect From Binary.com Server..");
+		setNotifications(prev => ([
+			timestamp + " - Disconnect From Binary.com Server..",
+			...prev
+		]))
+      }
+
+     const onError = (evt) => {
+        var timestamp = getTimeStamp();
+		setNotifications(prev => ([
+			'<span style="color: red;"> ' + timestamp + ' - Please Check Your Internet Connection..</span>',
+			...prev
+		]))
+        // writeToScreen('<span style="color: red;"> ' + timestamp + ' - Please Check Your Internet Connection..</span>');
+        // show_form_login();
+		// setInfo(prev => ({...prev, isAuthorized: false}));
+      }
+
+	  const create_table = (message) => {
+
+        var array = message.split(" ");
+		setTable(prev => ([{
+			timestamp: array[0],
+			profit: array[1],
+			result: array[2],
+			pftPercentDisply: array[3],
+			crrnmdlxxx: array[4],
+			lockingDigit: array[5]
+		}, ...prev]))
+
+      }
+
+	  const getTimeStamp = () => {
+		var now = new Date();
+		return `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}-${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`
+	  }
+
 return(
 	<DerivAPIContext.Provider
 		value={{
 			info,
+			table,
+			notifications,
 			auThorized,
-			logout
+			logout,
+			updateSettings,
+			startTrade,
+			pauseTrade,
 		}}
 	>
 		{children}
+        <NotificationContainer/>
 	</DerivAPIContext.Provider>
 );
 

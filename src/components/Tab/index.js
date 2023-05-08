@@ -1,7 +1,9 @@
 import { useState } from 'react';
-
+import { DerivAPIContext } from '../../context/DerivAPIContext';
+import { useContext } from 'react';
 function Tab() {
     const [tab, setTab] = useState(0);
+    const deriv = useContext(DerivAPIContext);
   return (
 
     <div className='rounded-lg bg-white mt-16 grow flex flex-col'>
@@ -15,7 +17,9 @@ function Tab() {
             {
                 tab == 0 &&
                 <div className='overflow-y-scroll grow'>
-                    list1................
+                    {deriv.notifications.map((elem, idx) => (
+                        <div key={idx} dangerouslySetInnerHTML={{__html: elem}}></div>
+                    ))}
                 </div>
             }
 
@@ -29,8 +33,17 @@ function Tab() {
                         <div className='w-1/6'>Profit(%)</div>
                         <div className='w-1/6'>Modal</div>
                         <div className='w-1/6'>Locking</div>
-
                     </div>
+                    {deriv.table.map((elem, idx) => (
+                        <div className='flex justify-around  text-center mt-4'>
+                            <div className='w-1/6'>{elem.timestamp}</div>
+                            <div className='w-1/6'>{elem.profit}</div>
+                            <div className='w-1/6'>{elem.result}</div>
+                            <div className='w-1/6'>{elem.pftPercentDisply}(%)</div>
+                            <div className='w-1/6'>{elem.crrnmdlxxx}</div>
+                            <div className='w-1/6'>{elem.lockingDigit}</div>
+                        </div>
+                    ))}
                 </div>
             }
         </div>

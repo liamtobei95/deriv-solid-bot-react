@@ -4,7 +4,7 @@ import useOnClickOutside from './useClickOutside';
 import './index.css';
 
 function Dropdown(props) {
-    const [select, setSelect] = useState(0);
+    const [select, setSelect] = useState(props.default || 0);
     const [show, setShow] = useState(false);
 
     const ref = useRef();

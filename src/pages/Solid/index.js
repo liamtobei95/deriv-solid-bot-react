@@ -37,6 +37,7 @@ const mode = [
     {name: "Digit EVEN", value: "Digit Even"},
     {name: "Only Rise", value: "Rise"},
     {name: "Only Fall", value: "Fall"},
+    {name: "Digit Differs", value: "Digit Differs"},
 
 ]
 
@@ -84,19 +85,19 @@ function Solid() {
             <SolidHeader />
         </div>
         <div>
-            <StatesBar balance = {deriv.info.balance} target = {deriv.info.target} stop = {deriv.info.stop} profit = {deriv.info.profit} profitPercent = {deriv.info.profitPercent} ModalTracking = {deriv.info.ModalTracking}  />
+            <StatesBar balance = {deriv.info.balance} target = {setting.currentTargetProfit} stop = {setting.currentStopLoss} profit = {deriv.info.profit} profitPercent = {deriv.info.profitPercent} ModalTracking = {deriv.info.ModalTracking}  />
         </div>
         <div className='flex justify-between mt-16'>
             <div className='w-1/6 '>
-                <Dropdown onChange = {(idx) => {setSetting(prev => ({...prev, paramTradeKind: mode[idx].value}))}} label = "Режим торговли" elements = {mode} />
+                <Dropdown default = {8} onChange = {(idx) => {setSetting(prev => ({...prev, paramTradeKind: mode[idx].value}))}} label = "Режим торговли" elements = {mode} />
             </div>
 
             <div className='w-1/6 '>
-                <Dropdown onChange = {(idx) => {setSetting(prev => ({...prev, currentMarket: volatility[idx].value}))}} label = "Режим торговли" elements = {volatility} />
+                <Dropdown default = {11} onChange = {(idx) => {setSetting(prev => ({...prev, currentMarket: volatility[idx].value}))}} label = "Режим торговли" elements = {volatility} />
             </div>
 
             <div className='w-1/6 '>
-                <Dropdown onChange = {(idx) => {setSetting(prev => ({...prev, paramTickKind: tick[idx].value}))}} label = "Режим торговли" elements = {tick} />
+                <Dropdown default = {0} onChange = {(idx) => {setSetting(prev => ({...prev, paramTickKind: tick[idx].value}))}} label = "Режим торговли" elements = {tick} />
             </div>
 
             <div className='w-1/6 '>
@@ -106,7 +107,15 @@ function Solid() {
 
         <div className='flex justify-center mt-16'>
             <button onClick={()=>{setSettingModal(true)}} className='flex items-center rounded-lg bg-indigo-600 p-2 px-4 text-white mx-4'> <img src={require('../../assets/img/setting.png')} className='inline mr-2'/>НАСТРОЙКИ</button>
-            <button className='flex items-center rounded-lg bg-green-400 p-2 px-4 text-white mx-4'>  <img src={require('../../assets/img/next.png')} className='inline mr-2'/> ЗАПУСТИТЬ</button>
+            {
+                deriv.info.isStarted && 
+                <button onClick={()=>{deriv.pauseTrade()}} className='flex items-center rounded-lg bg-red-400 p-2 px-4 text-white mx-4'>  <img src={require('../../assets/img/pause.png')} className='inline mr-2'/> ОСТАНОВИТЬ</button>
+            }
+            {
+                !deriv.info.isStarted && 
+                <button onClick={()=>{deriv.startTrade()}} className='flex items-center rounded-lg bg-green-400 p-2 px-4 text-white mx-4'>  <img src={require('../../assets/img/next.png')} className='inline mr-2'/> ЗАПУСТИТЬ</button>
+            }
+        
         </div>
 
         
@@ -121,13 +130,13 @@ function Solid() {
         <Modal visible = {settingModal} close = {() => setSettingModal(false)} extend={true}>
             <div className='text-lg px-2'>
                 <p>Начальная ставка ($) :</p>
-                <input className='w-full border border-gray-500s p-2' type='number' onChange={(e) => {setTempSetting(prev => ({...prev, currentModal: e.target.value}))}}/>
+                <input className='w-full border border-gray-500s p-2' type='number' value={tempSetting.currentModal} onChange={(e) => {setTempSetting(prev => ({...prev, currentModal: e.target.value}))}}/>
                 <p className='mt-4'>Цель - Take Profit ($) :</p>
-                <input className='w-full border border-gray-500s p-2'type='number' onChange={(e) => {setTempSetting(prev => ({...prev, currentTargetProfit: e.target.value}))}}/>
+                <input className='w-full border border-gray-500s p-2'type='number' value={tempSetting.currentTargetProfit} onChange={(e) => {setTempSetting(prev => ({...prev, currentTargetProfit: e.target.value}))}}/>
                 <p className='mt-4'>Стоп - Stop Loss ($) :</p>
-                <input className='w-full border border-gray-500s p-2' type='number' onChange={(e) => {setTempSetting(prev => ({...prev, currentStopLoss: e.target.value}))}}/>
-                <div className='mt-4'><SettingDropdown onChange = {(idx) => {setTempSetting(prev => ({...prev, currentMarket: volatility[idx].value}))}}  label="Рынок :" elements = {volatility}/></div>
-                <div className='mt-4'><SettingDropdown onChange = {(idx) => {setTempSetting(prev => ({...prev, paramTradeKind: mode[idx].value}))}}  label="Режим торговли :" elements = {mode}/></div>
+                <input className='w-full border border-gray-500s p-2' type='number' value={tempSetting.currentStopLoss} onChange={(e) => {setTempSetting(prev => ({...prev, currentStopLoss: e.target.value}))}}/>
+                <div className='mt-4'><SettingDropdown default = {11} onChange = {(idx) => {setTempSetting(prev => ({...prev, currentMarket: volatility[idx].value}))}}  label="Рынок :" elements = {volatility}/></div>
+                <div className='mt-4'><SettingDropdown default = {8} onChange = {(idx) => {setTempSetting(prev => ({...prev, paramTradeKind: mode[idx].value}))}}  label="Режим торговли :" elements = {mode}/></div>
                 <div className='mt-4'><SettingDropdown onChange = {(idx) => {setTempSetting(prev => ({...prev, paramTickKind: tick[idx].value}))}} label="Продолжительность :" elements = {tick}/></div>
 
                 <button onClick={() => {

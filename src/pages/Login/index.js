@@ -19,26 +19,24 @@ function Login() {
         }
 
     }, [deriv.info.isAuthorized])
-    const createNotification = (type) => {
-        return () => {
-            
+
+    const createNotification = (type, title, message) => {
+        
             switch (type) {
               case 'info':
-                NotificationManager.info('Info message');
+                NotificationManager.info(message);
                 break;
               case 'success':
-                NotificationManager.success('Success message', 'Title here');
+                NotificationManager.success(title, message);
                 break;
               case 'warning':
-                NotificationManager.warning('Warning.', 'Please enter valid token', 3000);
+                NotificationManager.warning(title, message, 3000);
                 break;
               case 'error':
-                NotificationManager.error('Error message', 'Click me!', 5000, () => {
-                  alert('callback');
+                NotificationManager.error(title, message, 5000, () => {
                 });
                 break;
             }
-          };
     }
   return (
     <div className="App flex justify-center	items-center">
@@ -84,8 +82,8 @@ function Login() {
                 <span>Больше не показывать это сообщение</span>
             </div>
             <div className='flex justify-center mt-4'>
-                <Button className='bg-red-900 w-2/5 mx-4' onClick ={createNotification('warning')}>НЕТ, СОЗДАТЬ АККАУНТ</Button>
-                <Button className='bg-black w-2/5 mx-4' onClick ={createNotification('warning')}>ДА, АВТОРИЗОВАТЬСЯ</Button>
+                <Button className='bg-red-900 w-2/5 mx-4' onClick ={()=> createNotification('warning', "warning", "invalid token")}>НЕТ, СОЗДАТЬ АККАУНТ</Button>
+                <Button className='bg-black w-2/5 mx-4' onClick ={()=> createNotification('warning', "warning", "invalid token")}>ДА, АВТОРИЗОВАТЬСЯ</Button>
             </div>
         </Modal>
     </div>
