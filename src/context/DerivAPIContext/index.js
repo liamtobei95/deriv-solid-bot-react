@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {NotificationContainer, NotificationManager} from 'react-notifications';
 
-import DerivAPIBasic from "https://cdn.skypack.dev/@deriv/deriv-api/dist/DerivAPIBasic";
+// import DerivAPIBasic from "https://cdn.skypack.dev/@deriv/deriv-api/dist/DerivAPIBasic";
 
 const app_id = 1089; // Replace with your app_id or leave as 1089 for testing.
 let connection = new WebSocket(
